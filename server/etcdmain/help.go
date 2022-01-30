@@ -116,9 +116,9 @@ Clustering:
     V3 discovery: keepalive time for client connections.
   --discovery-keepalive-timeout
     V3 discovery: keepalive timeout for client connections.
-  --discovery-insecure-transport 'false'
+  --discovery-insecure-transport 'true'
     V3 discovery: disable transport security for client connections.
-  --discovery-insecure-skip-tls-verify
+  --discovery-insecure-skip-tls-verify 'false'
     V3 discovery: skip server certificate verification (CAUTION: this option should be enabled only for testing purposes).
   --discovery-cert
     V3 discovery: identify secure client using this TLS certificate file.

@@ -194,7 +194,7 @@ func newConfig() *config {
 	fs.DurationVar(&cfg.ec.DiscoveryCfg.RequestTimeOut, "discovery-request-timeout", cfg.ec.DiscoveryCfg.RequestTimeOut, "V3 discovery: timeout for discovery requests (excluding dial timeout).")
 	fs.DurationVar(&cfg.ec.DiscoveryCfg.KeepAliveTime, "discovery-keepalive-time", cfg.ec.DiscoveryCfg.KeepAliveTime, "V3 discovery: keepalive time for client connections.")
 	fs.DurationVar(&cfg.ec.DiscoveryCfg.KeepAliveTimeout, "discovery-keepalive-timeout", cfg.ec.DiscoveryCfg.KeepAliveTimeout, "V3 discovery: keepalive timeout for client connections.")
-	fs.BoolVar(&cfg.ec.DiscoveryCfg.InsecureTransport, "discovery-insecure-transport", false, "V3 discovery: disable transport security for client connections.")
+	fs.BoolVar(&cfg.ec.DiscoveryCfg.InsecureTransport, "discovery-insecure-transport", true, "V3 discovery: disable transport security for client connections.")
 	fs.BoolVar(&cfg.ec.DiscoveryCfg.InsecureSkipVerify, "discovery-insecure-skip-tls-verify", false, "V3 discovery: skip server certificate verification (CAUTION: this option should be enabled only for testing purposes).")
 	fs.StringVar(&cfg.ec.DiscoveryCfg.CertFile, "discovery-cert", "", "V3 discovery: identify secure client using this TLS certificate file.")
 	fs.StringVar(&cfg.ec.DiscoveryCfg.KeyFile, "discovery-key", "", "V3 discovery: identify secure client using this TLS key file.")
