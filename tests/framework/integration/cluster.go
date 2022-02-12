@@ -409,7 +409,7 @@ func (c *Cluster) WaitMembersForLeader(t testutil.TB, membs []*Member) int {
 	for _, m := range membs {
 		possibleLead[uint64(m.Server.ID())] = true
 	}
-	cc, err := c.ClusterClient()
+	cc, err := c.ClusterClient(t)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1372,16 +1372,26 @@ func (c *Cluster) Client(i int) *clientv3.Client {
 	return c.Members[i].Client
 }
 
-func (c *Cluster) ClusterClient() (client *clientv3.Client, err error) {
+func (c *Cluster) ClusterClient(t testutil.TB) (client *clientv3.Client, err error) {
 	if c.clusterClient == nil {
-		endpoints := []string{}
+		var endpoints []string
 		for _, m := range c.Members {
 			endpoints = append(endpoints, m.GrpcURL)
 		}
 		cfg := clientv3.Config{
-			Endpoints:   endpoints,
-			DialTimeout: 5 * time.Second,
-			DialOptions: []grpc.DialOption{grpc.WithBlock()},
+			Endpoints:          endpoints,
+			DialTimeout:        5 * time.Second,
+			DialOptions:        []grpc.DialOption{grpc.WithBlock()},
+			MaxCallSendMsgSize: c.Cfg.ClientMaxCallSendMsgSize,
+			MaxCallRecvMsgSize: c.Cfg.ClientMaxCallRecvMsgSize,
+			Logger:             memberLogger(t, "cluster"),
+		}
+		if c.Cfg.ClientTLS != nil {
+			tls, err := c.Cfg.ClientTLS.ClientConfig()
+			if err != nil {
+				return nil, err
+			}
+			cfg.TLS = tls
 		}
 		c.clusterClient, err = newClientV3(cfg)
 		if err != nil {
