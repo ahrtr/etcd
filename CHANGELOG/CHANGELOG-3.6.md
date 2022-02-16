@@ -16,6 +16,7 @@ See [code changes](https://github.com/etcd-io/etcd/compare/v3.5.0...v3.6.0).
 
 - Add command to generate [shell completion](https://github.com/etcd-io/etcd/pull/13133).
 - When print endpoint status, [show db size in use](https://github.com/etcd-io/etcd/pull/13639)
+- Trim the suffix dot from the target in SRV records returned by DNS lookup, see [code change](https://github.com/etcd-io/etcd/pull/13712).
 
 ### etcdutl v3
 
