@@ -66,10 +66,10 @@ func printMemberListWithHexJSON(r clientv3.MemberListResponse) {
 	buffer.WriteString("\",\"member_id\":\"")
 	b = strconv.AppendUint(nil, r.Header.MemberId, 16)
 	buffer.Write(b)
-	buffer.WriteString("\",\"raft_term\":")
+	buffer.WriteString("\",\"raft_term\":\"")
 	b = strconv.AppendUint(nil, r.Header.RaftTerm, 16)
 	buffer.Write(b)
-	buffer.WriteByte('}')
+	buffer.WriteString("\"}")
 	for i := 0; i < len(r.Members); i++ {
 		if i == 0 {
 			buffer.WriteString(",\"members\":[{\"ID\":\"")
