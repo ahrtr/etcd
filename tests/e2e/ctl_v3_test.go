@@ -150,6 +150,12 @@ type ctlCtx struct {
 
 	// dir that was used during the test
 	dataDir string
+
+	// If it's true, the client only connects to the specific member with
+	// index ${memberIndex}. It's false by default, so all the existing
+	// behaviors keep unchanged.
+	memberClient bool
+	memberIndex  int
 }
 
 type ctlOption func(*ctlCtx)
@@ -332,6 +338,9 @@ func (cx *ctlCtx) prefixArgs(eps []string) []string {
 // PrefixArgs prefixes etcdctl command.
 // Make sure to unset environment variables after tests.
 func (cx *ctlCtx) PrefixArgs() []string {
+	if cx.memberClient {
+		return cx.prefixArgs(cx.epc.EndpointsV3At(cx.memberIndex))
+	}
 	return cx.prefixArgs(cx.epc.EndpointsV3())
 }
 

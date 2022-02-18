@@ -403,6 +403,11 @@ func (epc *EtcdProcessCluster) EndpointsV3() []string {
 	return epc.Endpoints(func(ep EtcdProcess) []string { return ep.EndpointsV3() })
 }
 
+func (epc *EtcdProcessCluster) EndpointsV3At(index int) []string {
+	// We don't check the index for simplicity. The caller should pass a valid index.
+	return epc.Procs[index].EndpointsV3()
+}
+
 func (epc *EtcdProcessCluster) Endpoints(f func(ep EtcdProcess) []string) (ret []string) {
 	for _, p := range epc.Procs {
 		ret = append(ret, f(p)...)
