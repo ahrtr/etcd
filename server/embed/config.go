@@ -31,6 +31,7 @@ import (
 	"go.etcd.io/etcd/client/pkg/v3/tlsutil"
 	"go.etcd.io/etcd/client/pkg/v3/transport"
 	"go.etcd.io/etcd/client/pkg/v3/types"
+	"go.etcd.io/etcd/client/v3"
 	"go.etcd.io/etcd/pkg/v3/flags"
 	"go.etcd.io/etcd/pkg/v3/netutil"
 	"go.etcd.io/etcd/server/v3/config"
@@ -516,10 +517,15 @@ func NewConfig() *Config {
 		V2Deprecation: config.V2_DEPR_DEFAULT,
 
 		DiscoveryCfg: v3discovery.DiscoveryConfig{
-			DialTimeout:      DefaultDiscoveryDialTimeout,
-			RequestTimeOut:   DefaultDiscoveryRequestTimeOut,
-			KeepAliveTime:    DefaultDiscoveryKeepAliveTime,
-			KeepAliveTimeout: DefaultDiscoveryKeepAliveTimeOut,
+			ClientConfig: clientv3.ClientConfig{
+				DialTimeout:      DefaultDiscoveryDialTimeout,
+				RequestTimeOut:   DefaultDiscoveryRequestTimeOut,
+				KeepAliveTime:    DefaultDiscoveryKeepAliveTime,
+				KeepAliveTimeout: DefaultDiscoveryKeepAliveTimeOut,
+
+				Scfg: &clientv3.SecureCfg{},
+				Acfg: &clientv3.AuthCfg{},
+			},
 		},
 	}
 	cfg.InitialCluster = cfg.InitialClusterFromName(cfg.Name)
@@ -688,11 +694,11 @@ func (cfg *Config) Validate() error {
 	v2discoveryFlagsExist := cfg.Dproxy != ""
 	v3discoveryFlagsExist := len(cfg.DiscoveryCfg.Endpoints) > 0 ||
 		cfg.DiscoveryCfg.Token != "" ||
-		cfg.DiscoveryCfg.CertFile != "" ||
-		cfg.DiscoveryCfg.KeyFile != "" ||
-		cfg.DiscoveryCfg.TrustedCAFile != "" ||
-		cfg.DiscoveryCfg.User != "" ||
-		cfg.DiscoveryCfg.Password != ""
+		cfg.DiscoveryCfg.Scfg.Cert != "" ||
+		cfg.DiscoveryCfg.Scfg.Key != "" ||
+		cfg.DiscoveryCfg.Scfg.Cacert != "" ||
+		cfg.DiscoveryCfg.Acfg.Username != "" ||
+		cfg.DiscoveryCfg.Acfg.Password != ""
 
 	if v2discoveryFlagsExist && v3discoveryFlagsExist {
 		return errors.New("both v2 discovery settings (discovery, discovery-proxy) " +
