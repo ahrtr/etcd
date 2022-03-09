@@ -20,11 +20,14 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/coreos/go-semver/semver"
+
 	"go.etcd.io/etcd/api/v3/version"
 	"go.etcd.io/etcd/server/v3/etcdserver"
 	"go.etcd.io/etcd/server/v3/etcdserver/api"
 	"go.etcd.io/etcd/server/v3/etcdserver/api/v2error"
 	"go.etcd.io/etcd/server/v3/etcdserver/api/v2http/httptypes"
+	serverversion "go.etcd.io/etcd/server/v3/etcdserver/version"
 	"go.uber.org/zap"
 )
 
@@ -40,24 +43,46 @@ func HandleBasic(lg *zap.Logger, mux *http.ServeMux, server etcdserver.ServerPee
 	mux.HandleFunc(versionPath, versionHandler(server.Cluster(), serveVersion))
 }
 
-func versionHandler(c api.Cluster, fn func(http.ResponseWriter, *http.Request, string)) http.HandlerFunc {
+func HandleBasicForV3(lg *zap.Logger, mux *http.ServeMux, server serverversion.Server) {
+	mux.HandleFunc(varsPath, serveVars)
+	mux.HandleFunc(versionPath, versionHandlerV3(server, serveVersion))
+}
+
+func versionHandler(c api.Cluster, fn func(http.ResponseWriter, *http.Request, string, string)) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		v := c.Version()
 		if v != nil {
-			fn(w, r, v.String())
+			fn(w, r, v.String(), "unknown")
 		} else {
-			fn(w, r, "not_decided")
+			fn(w, r, "not_decided", "unknown")
 		}
 	}
 }
 
-func serveVersion(w http.ResponseWriter, r *http.Request, clusterV string) {
+func versionHandlerV3(server serverversion.Server, fn func(http.ResponseWriter, *http.Request, string, string)) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		cv := server.GetClusterVersion()
+		sv := server.GetStorageVersion()
+
+		getVersionStr := func(ver *semver.Version, defaultVal string) string {
+			if ver != nil {
+				return ver.String()
+			}
+			return defaultVal
+		}
+
+		fn(w, r, getVersionStr(cv, "not_decided"), getVersionStr(sv, "unknown"))
+	}
+}
+
+func serveVersion(w http.ResponseWriter, r *http.Request, clusterVersion, storageVersion string) {
 	if !allowMethod(w, r, "GET") {
 		return
 	}
 	vs := version.Versions{
 		Server:  version.Version,
-		Cluster: clusterV,
+		Cluster: clusterVersion,
+		Storage: storageVersion,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
