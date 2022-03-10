@@ -51,8 +51,10 @@ func endpointStatusTest(cx ctlCtx) {
 }
 
 func ctlV3EndpointStatus(cx ctlCtx) error {
-	cmdArgs := append(cx.PrefixArgs(), "endpoint", "status")
+	cmdArgs := append(cx.PrefixArgs(), "endpoint", "status", "-w", "table")
 	var eps []string
+	// verify that the new field "storageVersion" can be displayed.
+	eps = append(eps, "STORAGE VERSION")
 	for _, ep := range cx.epc.EndpointsV3() {
 		u, _ := url.Parse(ep)
 		eps = append(eps, u.Host)

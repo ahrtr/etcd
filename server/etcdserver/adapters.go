@@ -31,7 +31,7 @@ type serverVersionAdapter struct {
 	*EtcdServer
 }
 
-func newServerVersionAdapter(s *EtcdServer) *serverVersionAdapter {
+func NewServerVersionAdapter(s *EtcdServer) *serverVersionAdapter {
 	return &serverVersionAdapter{
 		EtcdServer: s,
 	}
