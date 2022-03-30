@@ -207,8 +207,10 @@ type EtcdServer struct {
 	term              uint64 // must use atomic operations to access; keep 64-bit aligned.
 	lead              uint64 // must use atomic operations to access; keep 64-bit aligned.
 
-	consistIndex cindex.ConsistentIndexer // consistIndex is used to get/set/save consistentIndex
-	r            raftNode                 // uses 64-bit atomics; keep 64-bit aligned.
+	consistentIdx  uint64                   // must use atomic operations to access; keep 64-bit aligned.
+	consistentTerm uint64                   // must use atomic operations to access; keep 64-bit aligned.
+	consistIndex   cindex.ConsistentIndexer // consistIndex is used to get/set/save consistentIndex
+	r              raftNode                 // uses 64-bit atomics; keep 64-bit aligned.
 
 	readych chan struct{}
 	Cfg     config.ServerConfig
@@ -1555,6 +1557,15 @@ func (s *EtcdServer) getLead() uint64 {
 	return atomic.LoadUint64(&s.lead)
 }
 
+func (s *EtcdServer) setConsistentIndexAndTerm(cIdx, cTerm uint64) {
+	atomic.StoreUint64(&s.consistentIdx, cIdx)
+	atomic.StoreUint64(&s.consistentTerm, cTerm)
+}
+
+func (s *EtcdServer) getConsistentIndexAndTerm() (uint64, uint64) {
+	return atomic.LoadUint64(&s.consistentIdx), atomic.LoadUint64(&s.consistentTerm)
+}
+
 func (s *EtcdServer) LeaderChangedNotify() <-chan struct{} {
 	return s.leaderChanged.Receive()
 }
@@ -1771,7 +1782,7 @@ func (s *EtcdServer) apply(
 
 			// set the consistent index of current executing entry
 			if e.Index > s.consistIndex.ConsistentIndex() {
-				s.consistIndex.SetConsistentIndex(e.Index, e.Term)
+				s.setConsistentIndexAndTerm(e.Index, e.Term)
 				shouldApplyV3 = membership.ApplyBoth
 			}
 
@@ -1801,7 +1812,7 @@ func (s *EtcdServer) applyEntryNormal(e *raftpb.Entry) {
 	index := s.consistIndex.ConsistentIndex()
 	if e.Index > index {
 		// set the consistent index of current executing entry
-		s.consistIndex.SetConsistentIndex(e.Index, e.Term)
+		s.setConsistentIndexAndTerm(e.Index, e.Term)
 		shouldApplyV3 = membership.ApplyBoth
 	}
 	s.lg.Debug("apply entry normal",
@@ -1812,6 +1823,7 @@ func (s *EtcdServer) applyEntryNormal(e *raftpb.Entry) {
 	// raft state machine may generate noop entry when leader confirmation.
 	// skip it in advance to avoid some potential bug in the future
 	if len(e.Data) == 0 {
+		s.saveConsistentIndexIfNeeded(shouldApplyV3)
 		s.firstCommitInTerm.Notify()
 
 		// promote lessor when the local member is leader and finished
@@ -1826,6 +1838,7 @@ func (s *EtcdServer) applyEntryNormal(e *raftpb.Entry) {
 	if !pbutil.MaybeUnmarshal(&raftReq, e.Data) { // backward compatible
 		var r pb.Request
 		rp := &r
+		s.saveConsistentIndexIfNeeded(shouldApplyV3)
 		pbutil.MustUnmarshal(rp, e.Data)
 		s.lg.Debug("applyEntryNormal", zap.Stringer("V2request", rp))
 		s.w.Trigger(r.ID, s.applyV2Request((*RequestV2)(rp), shouldApplyV3))
@@ -1834,6 +1847,7 @@ func (s *EtcdServer) applyEntryNormal(e *raftpb.Entry) {
 	s.lg.Debug("applyEntryNormal", zap.Stringer("raftReq", &raftReq))
 
 	if raftReq.V2 != nil {
+		s.saveConsistentIndexIfNeeded(shouldApplyV3)
 		req := (*RequestV2)(raftReq.V2)
 		s.w.Trigger(req.ID, s.applyV2Request(req, shouldApplyV3))
 		return
@@ -1853,13 +1867,16 @@ func (s *EtcdServer) applyEntryNormal(e *raftpb.Entry) {
 		if !needResult && raftReq.Txn != nil {
 			removeNeedlessRangeReqs(raftReq.Txn)
 		}
+		s.lockApplyAndSaveConsistentIndexIfNeeded(shouldApplyV3)
 		ar = s.applyV3.Apply(&raftReq, shouldApplyV3)
+		s.unlockApplyIfNeeded(shouldApplyV3)
 	}
 
 	// do not re-apply applied entries.
 	if !shouldApplyV3 {
 		return
 	}
+	s.saveConsistentIndexIfNeeded(shouldApplyV3)
 
 	if ar == nil {
 		return
@@ -1895,6 +1912,7 @@ func (s *EtcdServer) applyConfChange(cc raftpb.ConfChange, confState *raftpb.Con
 	if err := s.cluster.ValidateConfigurationChange(cc); err != nil {
 		cc.NodeID = raft.None
 		s.r.ApplyConfChange(cc)
+		s.saveConsistentIndexIfNeeded(shouldApplyV3)
 		return false, err
 	}
 
@@ -1914,10 +1932,14 @@ func (s *EtcdServer) applyConfChange(cc raftpb.ConfChange, confState *raftpb.Con
 				zap.String("member-id-from-message", confChangeContext.Member.ID.String()),
 			)
 		}
+
+		s.lockApplyAndSaveConsistentIndexIfNeeded(shouldApplyV3)
 		if confChangeContext.IsPromote {
 			s.cluster.PromoteMember(confChangeContext.Member.ID, shouldApplyV3)
+			s.unlockApplyIfNeeded(shouldApplyV3)
 		} else {
 			s.cluster.AddMember(&confChangeContext.Member, shouldApplyV3)
+			s.unlockApplyIfNeeded(shouldApplyV3)
 
 			if confChangeContext.Member.ID != s.id {
 				s.r.transport.AddPeer(confChangeContext.Member.ID, confChangeContext.PeerURLs)
@@ -1935,7 +1957,9 @@ func (s *EtcdServer) applyConfChange(cc raftpb.ConfChange, confState *raftpb.Con
 
 	case raftpb.ConfChangeRemoveNode:
 		id := types.ID(cc.NodeID)
+		s.lockApplyAndSaveConsistentIndexIfNeeded(shouldApplyV3)
 		s.cluster.RemoveMember(id, shouldApplyV3)
+		s.unlockApplyIfNeeded(shouldApplyV3)
 		if id == s.id {
 			return true, nil
 		}
@@ -1953,7 +1977,9 @@ func (s *EtcdServer) applyConfChange(cc raftpb.ConfChange, confState *raftpb.Con
 				zap.String("member-id-from-message", m.ID.String()),
 			)
 		}
+		s.lockApplyAndSaveConsistentIndexIfNeeded(shouldApplyV3)
 		s.cluster.UpdateRaftAttributes(m.ID, m.RaftAttributes, shouldApplyV3)
+		s.unlockApplyIfNeeded(shouldApplyV3)
 		if m.ID != s.id {
 			s.r.transport.UpdatePeer(m.ID, m.PeerURLs)
 		}
@@ -2295,4 +2321,24 @@ func (s *EtcdServer) raftStatus() raft.Status {
 
 func (s *EtcdServer) Version() *serverversion.Manager {
 	return serverversion.NewManager(s.Logger(), NewServerVersionAdapter(s))
+}
+
+func (s *EtcdServer) saveConsistentIndexIfNeeded(shouldApplyV3 membership.ShouldApplyV3) {
+	if membership.ApplyBoth == shouldApplyV3 {
+		cidx, term := s.getConsistentIndexAndTerm()
+		s.consistIndex.SetConsistentIndex(cidx, term)
+	}
+}
+
+func (s *EtcdServer) lockApplyAndSaveConsistentIndexIfNeeded(shouldApplyV3 membership.ShouldApplyV3) {
+	if membership.ApplyBoth == shouldApplyV3 {
+		s.be.LockApply()
+		s.saveConsistentIndexIfNeeded(shouldApplyV3)
+	}
+}
+
+func (s *EtcdServer) unlockApplyIfNeeded(shouldApplyV3 membership.ShouldApplyV3) {
+	if membership.ApplyBoth == shouldApplyV3 {
+		s.be.UnlockApply()
+	}
 }

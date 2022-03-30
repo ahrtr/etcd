@@ -214,6 +214,8 @@ func unsafeForEach(tx *bolt.Tx, bucket Bucket, visitor func(k, v []byte) error) 
 
 // Commit commits a previous tx and begins a new writable one.
 func (t *batchTx) Commit() {
+	t.backend.LockApply()
+	defer t.backend.UnlockApply()
 	t.Lock()
 	t.commit(false)
 	t.Unlock()
@@ -221,6 +223,8 @@ func (t *batchTx) Commit() {
 
 // CommitAndStop commits the previous tx and does not create a new one.
 func (t *batchTx) CommitAndStop() {
+	t.backend.LockApply()
+	defer t.backend.UnlockApply()
 	t.Lock()
 	t.commit(true)
 	t.Unlock()
@@ -291,12 +295,16 @@ func (t *batchTxBuffered) Unlock() {
 }
 
 func (t *batchTxBuffered) Commit() {
+	t.backend.LockApply()
+	defer t.backend.UnlockApply()
 	t.Lock()
 	t.commit(false)
 	t.Unlock()
 }
 
 func (t *batchTxBuffered) CommitAndStop() {
+	t.backend.LockApply()
+	defer t.backend.UnlockApply()
 	t.Lock()
 	t.commit(true)
 	t.Unlock()

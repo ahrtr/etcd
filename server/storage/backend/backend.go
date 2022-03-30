@@ -67,6 +67,10 @@ type Backend interface {
 	Defrag() error
 	ForceCommit()
 	Close() error
+
+	// LockApply and UnlockApply are used to lock or unlock the applying workflow.
+	LockApply()
+	UnlockApply()
 }
 
 type Snapshot interface {
@@ -118,6 +122,12 @@ type backend struct {
 	donec chan struct{}
 
 	hooks Hooks
+
+	// muApply is used to protect the applying workflow.
+	// backend shouldn't care about the business logic, such as the applying workflow,
+	// but this is the simplest solution to fix the data inconsistency issue for now.
+	// TODO(ahrtr): refactor the code to deliver a more decent solution.
+	muApply sync.Mutex
 
 	lg *zap.Logger
 }
@@ -221,6 +231,14 @@ func newBackend(bcfg BackendConfig) *backend {
 
 	go b.run()
 	return b
+}
+
+func (b *backend) LockApply() {
+	b.muApply.Lock()
+}
+
+func (b *backend) UnlockApply() {
+	b.muApply.Unlock()
 }
 
 // BatchTx returns the current batch tx in coalescer. The tx can be used for read and
