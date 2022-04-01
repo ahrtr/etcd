@@ -278,6 +278,18 @@ func newBatchTxBuffered(backend *backend) *batchTxBuffered {
 	return tx
 }
 
+type batchTxBufferedWithHook struct {
+	batchTxBuffered
+	backend *backendWithHooks
+}
+
+func (t *batchTxBufferedWithHook) Lock() {
+	t.batchTx.Lock()
+	if t.backend.txPostLockHook != nil {
+		t.backend.txPostLockHook()
+	}
+}
+
 func (t *batchTxBuffered) Unlock() {
 	if t.pending != 0 {
 		t.backend.readTx.Lock() // blocks txReadBuffer for writing.

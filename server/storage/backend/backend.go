@@ -69,6 +69,13 @@ type Backend interface {
 	Close() error
 }
 
+// BackendWithHooks is a wrapper of Backend with additional functionality of hook.
+type BackendWithHooks interface {
+	Backend
+	// SetTxPostLockHook sets a txPostLockHook.
+	SetTxPostLockHook(func())
+}
+
 type Snapshot interface {
 	// Size gets the size of the snapshot.
 	Size() int64
@@ -122,6 +129,12 @@ type backend struct {
 	lg *zap.Logger
 }
 
+type backendWithHooks struct {
+	*backend
+	// txPostLockHook is called each time right after locking the tx.
+	txPostLockHook func()
+}
+
 type BackendConfig struct {
 	// Path is the file path to the backend file.
 	Path string
@@ -142,6 +155,9 @@ type BackendConfig struct {
 
 	// Hooks are getting executed during lifecycle of Backend's transactions.
 	Hooks Hooks
+
+	// WithPostLockHook enables the postLockHook functionality if true.
+	WithPostLockHook bool
 }
 
 func DefaultBackendConfig() BackendConfig {
@@ -215,12 +231,26 @@ func newBackend(bcfg BackendConfig) *backend {
 		lg: bcfg.Logger,
 	}
 
+	// if bcfg.WithPostLockHook is true, then we need create a
+	// batchTxBufferedWithHook object here; but the batchTx isn't
+	// an interface for now, and some refactor is needed to make
+	// it happen.
 	b.batchTx = newBatchTxBuffered(b)
 	// We set it after newBatchTxBuffered to skip the 'empty' commit.
 	b.hooks = bcfg.Hooks
 
 	go b.run()
+
+	// if if bcfg.WithPostLockHook is true, we should return &backendWithHooks{b} instead.
 	return b
+}
+
+func (b *backendWithHooks) SetTxPostLockHook(hook func()) {
+	// It needs to lock the batchTx, because the periodic commit
+	// may be accessing the txPostLockHook at the moment.
+	b.batchTx.Lock()
+	defer b.batchTx.Unlock()
+	b.txPostLockHook = hook
 }
 
 // BatchTx returns the current batch tx in coalescer. The tx can be used for read and
