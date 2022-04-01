@@ -303,6 +303,7 @@ func (t *batchTxBuffered) CommitAndStop() {
 }
 
 func (t *batchTxBuffered) commit(stop bool) {
+	// (todo): remove the OnPreCommitUnsafe
 	if t.backend.hooks != nil {
 		t.backend.hooks.OnPreCommitUnsafe(t)
 	}

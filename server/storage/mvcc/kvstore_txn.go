@@ -169,6 +169,7 @@ func (tw *storeTxnWrite) End() {
 	// only update index if the txn modifies the mvcc state.
 	if len(tw.changes) != 0 {
 		// hold revMu lock to prevent new read txns from opening until writeback.
+		tw.s.saveIndex(tw.tx)
 		tw.s.revMu.Lock()
 		tw.s.currentRev++
 	}

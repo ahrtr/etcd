@@ -117,6 +117,7 @@ type backend struct {
 	stopc chan struct{}
 	donec chan struct{}
 
+	// todo: remove te hooks
 	hooks Hooks
 
 	lg *zap.Logger
