@@ -939,7 +939,7 @@ func NewAuthStore(lg *zap.Logger, be AuthBackend, tp TokenProvider, bcryptCost i
 
 	be.CreateAuthBuckets()
 	tx := be.BatchTx()
-	// We should call LockWithoutHook here, but the txPostLockHoos isn't set
+	// We should call LockOutsideApply here, but the txPostLockHoos isn't set
 	// to EtcdServer yet, so it's OK.
 	tx.Lock()
 	enabled := tx.UnsafeReadAuthEnabled()
