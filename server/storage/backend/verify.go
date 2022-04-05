@@ -46,6 +46,15 @@ func ValidateCalledOutSideApply(lg *zap.Logger) {
 	}
 }
 
+func ValidateCalledFromUnittest(lg *zap.Logger) {
+	if !verifyLockEnabled() {
+		return
+	}
+	if !fromUnittest() {
+		lg.Fatal("Lock called outside of unit test!", zap.Stack("stacktrace"))
+	}
+}
+
 func verifyLockEnabled() bool {
 	return os.Getenv(ENV_VERIFY) == ENV_VERIFY_ALL_VALUE || os.Getenv(ENV_VERIFY) == ENV_VERIFY_LOCK
 }
@@ -53,4 +62,9 @@ func verifyLockEnabled() bool {
 func insideApply() bool {
 	stackTraceStr := string(debug.Stack())
 	return strings.Contains(stackTraceStr, ".applyEntries")
+}
+
+func fromUnittest() bool {
+	stackTraceStr := string(debug.Stack())
+	return strings.Contains(stackTraceStr, "_test.go")
 }
