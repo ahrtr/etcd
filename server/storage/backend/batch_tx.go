@@ -17,6 +17,8 @@ package backend
 import (
 	"bytes"
 	"math"
+	"runtime/debug"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -65,25 +67,31 @@ type batchTx struct {
 	pending int
 }
 
+// Lock is supposed to be called only by the unit test.
 func (t *batchTx) Lock() {
-	t.LockWithoutHook()
-	if t.backend.txPostLockHook != nil {
-		t.backend.txPostLockHook()
+	stackTraceStr := string(debug.Stack())
+	if !strings.Contains(stackTraceStr, "_test.go") {
+		t.backend.lg.Fatal("Lock called outside of unit test", zap.Stack("stacktrace"))
 	}
+
+	t.lock()
 }
 
-func (t *batchTx) LockWithoutHook() {
+func (t *batchTx) lock() {
 	t.Mutex.Lock()
 }
 
 func (t *batchTx) LockInsideApply() {
 	ValidateCalledInsideApply(t.backend.lg)
-	t.Lock()
+	t.lock()
+	if t.backend.txPostLockHook != nil {
+		t.backend.txPostLockHook()
+	}
 }
 
 func (t *batchTx) LockOutsideApply() {
 	ValidateCalledOutSideApply(t.backend.lg)
-	t.Lock()
+	t.lock()
 }
 
 func (t *batchTx) Unlock() {
@@ -233,14 +241,14 @@ func unsafeForEach(tx *bolt.Tx, bucket Bucket, visitor func(k, v []byte) error) 
 
 // Commit commits a previous tx and begins a new writable one.
 func (t *batchTx) Commit() {
-	t.LockWithoutHook()
+	t.LockOutsideApply()
 	t.commit(false)
 	t.Unlock()
 }
 
 // CommitAndStop commits the previous tx and does not create a new one.
 func (t *batchTx) CommitAndStop() {
-	t.LockWithoutHook()
+	t.LockOutsideApply()
 	t.commit(true)
 	t.Unlock()
 }
@@ -310,13 +318,13 @@ func (t *batchTxBuffered) Unlock() {
 }
 
 func (t *batchTxBuffered) Commit() {
-	t.LockWithoutHook()
+	t.LockOutsideApply()
 	t.commit(false)
 	t.Unlock()
 }
 
 func (t *batchTxBuffered) CommitAndStop() {
-	t.LockWithoutHook()
+	t.LockOutsideApply()
 	t.commit(true)
 	t.Unlock()
 }
