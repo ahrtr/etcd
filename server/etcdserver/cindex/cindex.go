@@ -134,7 +134,7 @@ func (f *fakeConsistentIndex) UnsafeSave(_ backend.BatchTx) {}
 func (f *fakeConsistentIndex) SetBackend(_ Backend)         {}
 
 func UpdateConsistentIndex(tx backend.BatchTx, index uint64, term uint64, onlyGrow bool) {
-	tx.LockWithoutHook()
+	tx.LockOutsideApply()
 	defer tx.Unlock()
 	schema.UnsafeUpdateConsistentIndex(tx, index, term, onlyGrow)
 }
