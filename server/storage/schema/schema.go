@@ -31,7 +31,7 @@ var (
 
 // Validate checks provided backend to confirm that schema used is supported.
 func Validate(lg *zap.Logger, tx backend.BatchTx) error {
-	tx.LockWithoutHook()
+	tx.LockOutsideApply()
 	defer tx.Unlock()
 	return unsafeValidate(lg, tx)
 }
@@ -60,7 +60,7 @@ type WALVersion interface {
 // Migrate updates storage schema to provided target version.
 // Downgrading requires that provided WAL doesn't contain unsupported entries.
 func Migrate(lg *zap.Logger, tx backend.BatchTx, w WALVersion, target semver.Version) error {
-	tx.LockWithoutHook()
+	tx.LockOutsideApply()
 	defer tx.Unlock()
 	return UnsafeMigrate(lg, tx, w, target)
 }
