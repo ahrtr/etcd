@@ -236,7 +236,7 @@ func (b *backend) BatchTx() BatchTx {
 func (b *backend) SetTxPostLockHook(hook func()) {
 	// It needs to lock the batchTx, because the periodic commit
 	// may be accessing the txPostLockHook at the moment.
-	b.batchTx.LockOutsideApply()
+	b.batchTx.lock()
 	defer b.batchTx.Unlock()
 	b.txPostLockHook = hook
 }

@@ -15,7 +15,6 @@
 package backend_test
 
 import (
-	"fmt"
 	"os"
 	"testing"
 	"time"
@@ -26,26 +25,39 @@ import (
 
 func TestLockVerify(t *testing.T) {
 	tcs := []struct {
-		insideApply bool
-		lock        func(tx backend.BatchTx)
-		expectPanic bool
+		name           string
+		insideApply    bool
+		lock           func(tx backend.BatchTx)
+		txPostLockHook func()
+		expectPanic    bool
 	}{
 		{
+			name:        "call lockInsideApply from inside apply",
 			insideApply: true,
 			lock:        lockInsideApply,
 			expectPanic: false,
 		},
 		{
+			name:        "call lockInsideApply from outside apply (without txPostLockHook)",
 			insideApply: false,
 			lock:        lockInsideApply,
-			expectPanic: true,
+			expectPanic: false,
 		},
 		{
+			name:           "call lockInsideApply from outside apply (with txPostLockHook)",
+			insideApply:    false,
+			lock:           lockInsideApply,
+			txPostLockHook: func() {},
+			expectPanic:    true,
+		},
+		{
+			name:        "call lockOutsideApply from outside apply",
 			insideApply: false,
 			lock:        lockOutsideApply,
 			expectPanic: false,
 		},
 		{
+			name:        "call lockOutsideApply from inside apply",
 			insideApply: true,
 			lock:        lockOutsideApply,
 			expectPanic: true,
@@ -56,10 +68,11 @@ func TestLockVerify(t *testing.T) {
 	defer func() {
 		os.Setenv("ETCD_VERIFY", env)
 	}()
-	for i, tc := range tcs {
-		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
 
 			be, _ := betesting.NewTmpBackend(t, time.Hour, 10000)
+			be.SetTxPostLockHook(tc.txPostLockHook)
 
 			hasPaniced := handlePanic(func() {
 				if tc.insideApply {
