@@ -52,7 +52,6 @@ func ValidateCalledFromUnittest(lg *zap.Logger) {
 	}
 	if !fromUnittest() {
 		lg.Fatal("Lock called outside of unit test!", zap.Stack("stacktrace"))
-		lg.Panic("Called inside of APPLY!", zap.Stack("stacktrace"))
 	}
 }
 
