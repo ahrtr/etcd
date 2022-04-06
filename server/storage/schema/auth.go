@@ -106,7 +106,7 @@ func (atx *authBatchTx) UnsafeReadAuthRevision() uint64 {
 }
 
 func (atx *authBatchTx) Lock() {
-	atx.tx.Lock()
+	atx.tx.LockInsideApply()
 }
 
 func (atx *authBatchTx) Unlock() {
