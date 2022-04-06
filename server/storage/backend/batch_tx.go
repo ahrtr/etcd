@@ -69,11 +69,7 @@ type batchTx struct {
 
 // Lock is supposed to be called only by the unit test.
 func (t *batchTx) Lock() {
-	stackTraceStr := string(debug.Stack())
-	if !strings.Contains(stackTraceStr, "_test.go") {
-		t.backend.lg.Fatal("Lock called outside of unit test", zap.Stack("stacktrace"))
-	}
-
+	ValidateCalledFromUnittest(t.backend.lg)
 	t.lock()
 }
 
