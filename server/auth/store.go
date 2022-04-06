@@ -374,7 +374,7 @@ func (as *authStore) CheckPassword(username, password string) (uint64, error) {
 
 func (as *authStore) Recover(be AuthBackend) {
 	as.be = be
-	tx := be.BatchTx()
+	tx := be.ReadTx()
 	tx.Lock()
 
 	enabled := tx.UnsafeReadAuthEnabled()
