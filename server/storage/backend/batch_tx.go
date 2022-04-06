@@ -17,8 +17,6 @@ package backend
 import (
 	"bytes"
 	"math"
-	"runtime/debug"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
