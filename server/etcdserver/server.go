@@ -2325,11 +2325,12 @@ func (s *EtcdServer) Version() *serverversion.Manager {
 	return serverversion.NewManager(s.Logger(), NewServerVersionAdapter(s))
 }
 
-func (s *EtcdServer) getTxPostLockInsideApplyHook() func() {
-	return func() {
+func (s *EtcdServer) getTxPostLockInsideApplyHook() func(backend.BatchTx) {
+	return func(tx backend.BatchTx) {
 		applyingIdx, applyingTerm := s.consistIndex.ConsistentApplyingIndex()
 		if applyingIdx > s.consistIndex.UnsafeConsistentIndex() {
 			s.consistIndex.SetConsistentIndex(applyingIdx, applyingTerm)
+			s.consistIndex.UnsafeSave(tx)
 		}
 	}
 }

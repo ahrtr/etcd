@@ -84,7 +84,7 @@ func (t *batchTx) LockInsideApply() {
 		// So we should check the txPostLockInsideApplyHook before validating
 		// the callstack.
 		ValidateCalledInsideApply(t.backend.lg)
-		t.backend.txPostLockInsideApplyHook()
+		t.backend.txPostLockInsideApplyHook(t)
 	}
 }
 

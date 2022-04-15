@@ -20,14 +20,12 @@ import (
 	"go.uber.org/zap"
 
 	"go.etcd.io/etcd/raft/v3/raftpb"
-	"go.etcd.io/etcd/server/v3/etcdserver/cindex"
 	"go.etcd.io/etcd/server/v3/storage/backend"
 	"go.etcd.io/etcd/server/v3/storage/schema"
 )
 
 type BackendHooks struct {
-	indexer cindex.ConsistentIndexer
-	lg      *zap.Logger
+	lg *zap.Logger
 
 	// confState to Be written in the next submitted Backend transaction (if dirty)
 	confState raftpb.ConfState
@@ -37,12 +35,11 @@ type BackendHooks struct {
 	confStateLock  sync.Mutex
 }
 
-func NewBackendHooks(lg *zap.Logger, indexer cindex.ConsistentIndexer) *BackendHooks {
-	return &BackendHooks{lg: lg, indexer: indexer}
+func NewBackendHooks(lg *zap.Logger) *BackendHooks {
+	return &BackendHooks{lg: lg}
 }
 
 func (bh *BackendHooks) OnPreCommitUnsafe(tx backend.BatchTx) {
-	bh.indexer.UnsafeSave(tx)
 	bh.confStateLock.Lock()
 	defer bh.confStateLock.Unlock()
 	if bh.confStateDirty {

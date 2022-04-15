@@ -924,7 +924,7 @@ func (b *fakeBackend) Snapshot() backend.Snapshot                               
 func (b *fakeBackend) ForceCommit()                                               {}
 func (b *fakeBackend) Defrag() error                                              { return nil }
 func (b *fakeBackend) Close() error                                               { return nil }
-func (b *fakeBackend) SetTxPostLockInsideApplyHook(func())                        {}
+func (b *fakeBackend) SetTxPostLockInsideApplyHook(func(tx backend.BatchTx))      {}
 
 type indexGetResp struct {
 	rev     revision

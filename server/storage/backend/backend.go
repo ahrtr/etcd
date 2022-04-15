@@ -69,7 +69,7 @@ type Backend interface {
 	Close() error
 
 	// SetTxPostLockInsideApplyHook sets a txPostLockInsideApplyHook.
-	SetTxPostLockInsideApplyHook(func())
+	SetTxPostLockInsideApplyHook(func(tx BatchTx))
 }
 
 type Snapshot interface {
@@ -123,7 +123,7 @@ type backend struct {
 	hooks Hooks
 
 	// txPostLockInsideApplyHook is called each time right after locking the tx.
-	txPostLockInsideApplyHook func()
+	txPostLockInsideApplyHook func(tx BatchTx)
 
 	lg *zap.Logger
 }
@@ -233,7 +233,7 @@ func (b *backend) BatchTx() BatchTx {
 	return b.batchTx
 }
 
-func (b *backend) SetTxPostLockInsideApplyHook(hook func()) {
+func (b *backend) SetTxPostLockInsideApplyHook(hook func(BatchTx)) {
 	// It needs to lock the batchTx, because the periodic commit
 	// may be accessing the txPostLockInsideApplyHook at the moment.
 	b.batchTx.lock()

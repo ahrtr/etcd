@@ -28,7 +28,7 @@ func TestLockVerify(t *testing.T) {
 		name                      string
 		insideApply               bool
 		lock                      func(tx backend.BatchTx)
-		txPostLockInsideApplyHook func()
+		txPostLockInsideApplyHook func(backend.BatchTx)
 		expectPanic               bool
 	}{
 		{
@@ -47,7 +47,7 @@ func TestLockVerify(t *testing.T) {
 			name:                      "call lockInsideApply from outside apply (with txPostLockInsideApplyHook)",
 			insideApply:               false,
 			lock:                      lockInsideApply,
-			txPostLockInsideApplyHook: func() {},
+			txPostLockInsideApplyHook: func(backend.BatchTx) {},
 			expectPanic:               true,
 		},
 		{

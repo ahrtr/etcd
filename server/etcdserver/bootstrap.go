@@ -203,7 +203,7 @@ func bootstrapSnapshot(cfg config.ServerConfig) *snap.Snapshotter {
 func bootstrapBackend(cfg config.ServerConfig, haveWAL bool, st v2store.Store, ss *snap.Snapshotter) (backend *bootstrappedBackend, err error) {
 	beExist := fileutil.Exist(cfg.BackendPath())
 	ci := cindex.NewConsistentIndex(nil)
-	beHooks := serverstorage.NewBackendHooks(cfg.Logger, ci)
+	beHooks := serverstorage.NewBackendHooks(cfg.Logger)
 	be := serverstorage.OpenBackend(cfg, beHooks)
 	defer func() {
 		if err != nil && be != nil {
