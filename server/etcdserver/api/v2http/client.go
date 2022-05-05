@@ -16,24 +16,9 @@
 package v2http
 
 import (
-	"net/http"
-	"time"
-
-	"go.etcd.io/etcd/server/v3/etcdserver"
-	"go.etcd.io/etcd/server/v3/etcdserver/api/etcdhttp"
 	"go.uber.org/zap"
+	"net/http"
 )
-
-// NewClientHandler generates a muxed http.Handler with the given parameters to serve etcd client requests.
-func NewClientHandler(lg *zap.Logger, server etcdserver.ServerPeer, timeout time.Duration) http.Handler {
-	if lg == nil {
-		lg = zap.NewNop()
-	}
-	mux := http.NewServeMux()
-	etcdhttp.HandleBasic(lg, mux, server)
-	etcdhttp.HandleMetricsHealth(lg, mux, server)
-	return requestLogger(lg, mux)
-}
 
 func requestLogger(lg *zap.Logger, handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
