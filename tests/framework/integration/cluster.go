@@ -35,7 +35,6 @@ import (
 
 	pb "go.etcd.io/etcd/api/v3/etcdserverpb"
 	"go.etcd.io/etcd/client/pkg/v3/testutil"
-	"go.etcd.io/etcd/client/pkg/v3/tlsutil"
 	"go.etcd.io/etcd/client/pkg/v3/transport"
 	"go.etcd.io/etcd/client/pkg/v3/types"
 	"go.etcd.io/etcd/client/v3"
@@ -47,7 +46,6 @@ import (
 	"go.etcd.io/etcd/server/v3/etcdserver/api/etcdhttp"
 	"go.etcd.io/etcd/server/v3/etcdserver/api/membership"
 	"go.etcd.io/etcd/server/v3/etcdserver/api/rafthttp"
-	"go.etcd.io/etcd/server/v3/etcdserver/api/v2http"
 	"go.etcd.io/etcd/server/v3/etcdserver/api/v3client"
 	"go.etcd.io/etcd/server/v3/etcdserver/api/v3election"
 	epb "go.etcd.io/etcd/server/v3/etcdserver/api/v3election/v3electionpb"
@@ -242,13 +240,9 @@ func (c *Cluster) ProtoMembers() []*pb.Member {
 	ms := []*pb.Member{}
 	for _, m := range c.Members {
 		pScheme := SchemeFromTLSInfo(m.PeerTLSInfo)
-		cScheme := SchemeFromTLSInfo(m.ClientTLSInfo)
 		cm := &pb.Member{Name: m.Name}
 		for _, ln := range m.PeerListeners {
 			cm.PeerURLs = append(cm.PeerURLs, pScheme+"://"+ln.Addr().String())
-		}
-		for _, ln := range m.ClientListeners {
-			cm.ClientURLs = append(cm.ClientURLs, cScheme+"://"+ln.Addr().String())
 		}
 		ms = append(ms, cm)
 	}
@@ -540,10 +534,10 @@ func NewListenerWithAddr(t testutil.TB, addr string) net.Listener {
 
 type Member struct {
 	config.ServerConfig
-	UniqNumber                     int
-	MemberNumber                   int
-	PeerListeners, ClientListeners []net.Listener
-	GrpcListener                   net.Listener
+	UniqNumber    int
+	MemberNumber  int
+	PeerListeners []net.Listener
+	GrpcListener  net.Listener
 	// PeerTLSInfo enables peer TLS when set
 	PeerTLSInfo *transport.TLSInfo
 	// ClientTLSInfo enables client TLS when set
@@ -629,7 +623,6 @@ func MustNewMember(t testutil.TB, mcfg MemberConfig) *Member {
 	m.PeerTLSInfo = mcfg.PeerTLS
 
 	cln := NewLocalListener(t)
-	m.ClientListeners = []net.Listener{cln}
 	m.ClientURLs, err = types.NewURLs([]string{clientScheme + "://" + cln.Addr().String()})
 	if err != nil {
 		t.Fatal(err)
@@ -873,7 +866,7 @@ func NewClientV3(m *Member) (*clientv3.Client, error) {
 }
 
 // Clone returns a member with the same server configuration. The returned
-// member will not set PeerListeners and ClientListeners.
+// member will not set PeerListeners.
 func (m *Member) Clone(t testutil.TB) *Member {
 	mm := &Member{}
 	mm.ServerConfig = m.ServerConfig
@@ -905,8 +898,7 @@ func (m *Member) Clone(t testutil.TB) *Member {
 	return mm
 }
 
-// Launch starts a member based on ServerConfig, PeerListeners
-// and ClientListeners.
+// Launch starts a member based on ServerConfig, PeerListeners.
 func (m *Member) Launch() error {
 	m.Logger.Info(
 		"launching a member",
@@ -991,69 +983,7 @@ func (m *Member) Launch() error {
 		}
 		m.ServerClosers = append(m.ServerClosers, closer)
 	}
-	for _, ln := range m.ClientListeners {
-		hs := &httptest.Server{
-			Listener: ln,
-			Config: &http.Server{
-				Handler: v2http.NewClientHandler(
-					m.Logger,
-					m.Server,
-					m.ServerConfig.ReqTimeout(),
-				),
-				ErrorLog: log.New(io.Discard, "net/http", 0),
-			},
-		}
-		if m.ClientTLSInfo == nil {
-			hs.Start()
-		} else {
-			info := m.ClientTLSInfo
-			hs.TLS, err = info.ServerConfig()
-			if err != nil {
-				return err
-			}
 
-			// baseConfig is called on initial TLS handshake start.
-			//
-			// Previously,
-			// 1. Server has non-empty (*tls.Config).Certificates on client hello
-			// 2. Server calls (*tls.Config).GetCertificate iff:
-			//    - Server'Server (*tls.Config).Certificates is not empty, or
-			//    - Client supplies SNI; non-empty (*tls.ClientHelloInfo).ServerName
-			//
-			// When (*tls.Config).Certificates is always populated on initial handshake,
-			// client is expected to provide a valid matching SNI to pass the TLS
-			// verification, thus trigger server (*tls.Config).GetCertificate to reload
-			// TLS assets. However, a cert whose SAN field does not include domain names
-			// but only IP addresses, has empty (*tls.ClientHelloInfo).ServerName, thus
-			// it was never able to trigger TLS reload on initial handshake; first
-			// ceritifcate object was being used, never being updated.
-			//
-			// Now, (*tls.Config).Certificates is created empty on initial TLS client
-			// handshake, in order to trigger (*tls.Config).GetCertificate and populate
-			// rest of the certificates on every new TLS connection, even when client
-			// SNI is empty (e.g. cert only includes IPs).
-			//
-			// This introduces another problem with "httptest.Server":
-			// when server initial certificates are empty, certificates
-			// are overwritten by Go'Server internal test certs, which have
-			// different SAN fields (e.g. example.com). To work around,
-			// re-overwrite (*tls.Config).Certificates before starting
-			// test server.
-			tlsCert, err := tlsutil.NewCert(info.CertFile, info.KeyFile, nil)
-			if err != nil {
-				return err
-			}
-			hs.TLS.Certificates = []tls.Certificate{*tlsCert}
-
-			hs.StartTLS()
-		}
-		closer := func() {
-			ln.Close()
-			hs.CloseClientConnections()
-			hs.Close()
-		}
-		m.ServerClosers = append(m.ServerClosers, closer)
-	}
 	if m.GrpcURL != "" && m.Client == nil {
 		m.Client, err = NewClientV3(m)
 		if err != nil {
@@ -1219,11 +1149,6 @@ func (m *Member) Restart(t testutil.TB) error {
 		newPeerListeners = append(newPeerListeners, NewListenerWithAddr(t, ln.Addr().String()))
 	}
 	m.PeerListeners = newPeerListeners
-	newClientListeners := make([]net.Listener, 0)
-	for _, ln := range m.ClientListeners {
-		newClientListeners = append(newClientListeners, NewListenerWithAddr(t, ln.Addr().String()))
-	}
-	m.ClientListeners = newClientListeners
 
 	if m.GrpcListener != nil {
 		if err := m.listenGRPC(); err != nil {
