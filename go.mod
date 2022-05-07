@@ -1,6 +1,6 @@
 module go.etcd.io/etcd
 
-go 1.12
+go 1.15
 
 require (
 	github.com/bgentry/speakeasy v0.1.0
