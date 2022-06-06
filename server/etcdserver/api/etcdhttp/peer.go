@@ -63,7 +63,6 @@ func newPeerHandler(
 	mux.Handle(peerMembersPath, peerMembersHandler)
 	mux.Handle(peerMemberPromotePrefix, peerMemberPromoteHandler)
 	if leaseHandler != nil {
-		mux.Handle(leasehttp.LeasePrefix, leaseHandler)
 		mux.Handle(leasehttp.LeaseInternalPrefix, leaseHandler)
 	}
 	if downgradeEnabledHandler != nil {

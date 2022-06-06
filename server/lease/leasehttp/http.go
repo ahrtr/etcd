@@ -61,36 +61,6 @@ func (h *leaseHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	var v []byte
 	switch r.URL.Path {
-	case LeasePrefix:
-		lreq := pb.LeaseKeepAliveRequest{}
-		if uerr := lreq.Unmarshal(b); uerr != nil {
-			http.Error(w, "error unmarshalling request", http.StatusBadRequest)
-			return
-		}
-		select {
-		case <-h.waitch():
-		case <-time.After(applyTimeout):
-			http.Error(w, ErrLeaseHTTPTimeout.Error(), http.StatusRequestTimeout)
-			return
-		}
-		ttl, rerr := h.l.Renew(lease.LeaseID(lreq.ID))
-		if rerr != nil {
-			if rerr == lease.ErrLeaseNotFound {
-				http.Error(w, rerr.Error(), http.StatusNotFound)
-				return
-			}
-
-			http.Error(w, rerr.Error(), http.StatusBadRequest)
-			return
-		}
-		// TODO: fill out ResponseHeader
-		resp := &pb.LeaseKeepAliveResponse{ID: lreq.ID, TTL: ttl}
-		v, err = resp.Marshal()
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
 	case LeaseInternalPrefix:
 		lreq := leasepb.LeaseInternalRequest{}
 		if lerr := lreq.Unmarshal(b); lerr != nil {

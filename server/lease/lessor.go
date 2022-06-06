@@ -286,15 +286,15 @@ func (le *lessor) Grant(id LeaseID, ttl int64) (*Lease, error) {
 		revokec: make(chan struct{}),
 	}
 
+	if l.ttl < le.minLeaseTTL {
+		l.ttl = le.minLeaseTTL
+	}
+
 	le.mu.Lock()
 	defer le.mu.Unlock()
 
 	if _, ok := le.leaseMap[id]; ok {
 		return nil, ErrLeaseExists
-	}
-
-	if l.ttl < le.minLeaseTTL {
-		l.ttl = le.minLeaseTTL
 	}
 
 	if le.isPrimary() {
@@ -326,6 +326,12 @@ func (le *lessor) Revoke(id LeaseID) error {
 		le.mu.Unlock()
 		return ErrLeaseNotFound
 	}
+
+	// We shouldn't delete the lease inside the transaction lock, otherwise
+	// it may lead to deadlock with Grant or Checkpoint operations, which
+	// acquire the le.mu firstly and then the batchTx lock.
+	delete(le.leaseMap, id)
+
 	defer close(l.revokec)
 	// unlock before doing external work
 	le.mu.Unlock()
@@ -344,9 +350,6 @@ func (le *lessor) Revoke(id LeaseID) error {
 		txn.DeleteRange([]byte(key), nil)
 	}
 
-	le.mu.Lock()
-	defer le.mu.Unlock()
-	delete(le.leaseMap, l.ID)
 	// lease deletion needs to be in the same backend transaction with the
 	// kv deletion. Or we might end up with not executing the revoke or not
 	// deleting the keys if etcdserver fails in between.
@@ -362,6 +365,10 @@ func (le *lessor) Checkpoint(id LeaseID, remainingTTL int64) error {
 	le.mu.Lock()
 	defer le.mu.Unlock()
 
+	return le.checkpoint(id, remainingTTL)
+}
+
+func (le *lessor) checkpoint(id LeaseID, remainingTTL int64) error {
 	if l, ok := le.leaseMap[id]; ok {
 		// when checkpointing, we only update the remainingTTL, Promote is responsible for applying this to lease expiry
 		l.remainingTTL = remainingTTL
@@ -388,52 +395,25 @@ func greaterOrEqual(first, second semver.Version) bool {
 // Renew renews an existing lease. If the given lease does not exist or
 // has expired, an error will be returned.
 func (le *lessor) Renew(id LeaseID) (int64, error) {
-	le.mu.RLock()
-	if !le.isPrimary() {
-		// forward renew request to primary instead of returning error.
-		le.mu.RUnlock()
-		return -1, ErrNotPrimary
-	}
-
-	demotec := le.demotec
+	le.mu.Lock()
+	defer le.mu.Unlock()
 
 	l := le.leaseMap[id]
 	if l == nil {
-		le.mu.RUnlock()
 		return -1, ErrLeaseNotFound
 	}
-	// Clear remaining TTL when we renew if it is set
-	clearRemainingTTL := le.cp != nil && l.remainingTTL > 0
 
-	le.mu.RUnlock()
-	if l.expired() {
-		select {
-		// A expired lease might be pending for revoking or going through
-		// quorum to be revoked. To be accurate, renew request must wait for the
-		// deletion to complete.
-		case <-l.revokec:
-			return -1, ErrLeaseNotFound
-		// The expired lease might fail to be revoked if the primary changes.
-		// The caller will retry on ErrNotPrimary.
-		case <-demotec:
-			return -1, ErrNotPrimary
-		case <-le.stopC:
-			return -1, ErrNotPrimary
+	if !le.isPrimary() {
+		if l.remainingTTL > 0 {
+			le.checkpoint(id, 0)
 		}
+		return l.ttl, nil
 	}
 
-	// Clear remaining TTL when we renew if it is set
-	// By applying a RAFT entry only when the remainingTTL is already set, we limit the number
-	// of RAFT entries written per lease to a max of 2 per checkpoint interval.
-	if clearRemainingTTL {
-		le.cp(context.Background(), &pb.LeaseCheckpointRequest{Checkpoints: []*pb.LeaseCheckpoint{{ID: int64(l.ID), Remaining_TTL: 0}}})
-	}
-
-	le.mu.Lock()
+	le.checkpoint(id, 0)
 	l.refresh(0)
 	item := &LeaseWithTime{id: l.ID, time: l.expiry}
 	le.leaseExpiredNotifier.RegisterOrUpdate(item)
-	le.mu.Unlock()
 
 	leaseRenewed.Inc()
 	return l.ttl, nil
