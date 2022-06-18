@@ -1,7 +1,7 @@
 # etcd
 
 [![Go Report Card](https://goreportcard.com/badge/github.com/etcd-io/etcd?style=flat-square)](https://goreportcard.com/report/github.com/etcd-io/etcd)
-[![Coverage](https://codecov.io/gh/etcd-io/etcd/branch/master/graph/badge.svg)](https://codecov.io/gh/etcd-io/etcd)
+[![Coverage](https://codecov.io/gh/etcd-io/etcd/branch/main/graph/badge.svg)](https://codecov.io/gh/etcd-io/etcd)
 [![Build Status Travis](https://img.shields.io/travis/etcd-io/etcdlabs.svg?style=flat-square&&branch=master)](https://travis-ci.com/etcd-io/etcd)
 [![Build Status Semaphore](https://semaphoreci.com/api/v1/etcd-io/etcd/branches/master/shields_badge.svg)](https://semaphoreci.com/etcd-io/etcd)
 [![Docs](https://img.shields.io/badge/docs-latest-green.svg)](https://etcd.io/docs)
