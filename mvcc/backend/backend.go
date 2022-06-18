@@ -95,9 +95,8 @@ type backend struct {
 	// openReadTxN is the number of currently open read transactions in the backend
 	openReadTxN int64
 
-	mu    sync.RWMutex
-	bopts *bolt.Options
-	db    *bolt.DB
+	mu sync.RWMutex
+	db *bolt.DB
 
 	batchInterval time.Duration
 	batchLimit    int
@@ -168,8 +167,7 @@ func newBackend(bcfg BackendConfig) *backend {
 	// In future, may want to make buffering optional for low-concurrency systems
 	// or dynamically swap between buffered/non-buffered depending on workload.
 	b := &backend{
-		bopts: bopts,
-		db:    db,
+		db: db,
 
 		batchInterval: bcfg.BatchInterval,
 		batchLimit:    bcfg.BatchLimit,
@@ -356,8 +354,6 @@ func (b *backend) Defrag() error {
 
 func (b *backend) defrag() error {
 	now := time.Now()
-	isDefragActive.Set(1)
-	defer isDefragActive.Set(0)
 
 	// TODO: make this non-blocking?
 	// lock batchTx to ensure nobody is using previous tx, and then
@@ -449,7 +445,7 @@ func (b *backend) defrag() error {
 		}
 	}
 
-	b.db, err = bolt.Open(dbp, 0600, b.bopts)
+	b.db, err = bolt.Open(dbp, 0600, boltOpenOptions)
 	if err != nil {
 		if b.lg != nil {
 			b.lg.Fatal("failed to open database", zap.String("path", dbp), zap.Error(err))
@@ -570,22 +566,16 @@ func (b *backend) OpenReadTxN() int64 {
 	return atomic.LoadInt64(&b.openReadTxN)
 }
 
-// NewTmpBackendFromCfg creates a backend implementation for testing with custom BackendConfig.
-func NewTmpBackendFromCfg(bcfg BackendConfig) (*backend, string) {
+// NewTmpBackend creates a backend implementation for testing.
+func NewTmpBackend(batchInterval time.Duration, batchLimit int) (*backend, string) {
 	dir, err := ioutil.TempDir(os.TempDir(), "etcd_backend_test")
 	if err != nil {
 		panic(err)
 	}
 	tmpPath := filepath.Join(dir, "database")
-	bcfg.Path = tmpPath
-	return newBackend(bcfg), tmpPath
-}
-
-// NewTmpBackend creates a backend implementation for testing.
-func NewTmpBackend(batchInterval time.Duration, batchLimit int) (*backend, string) {
 	bcfg := DefaultBackendConfig()
-	bcfg.BatchInterval, bcfg.BatchLimit = batchInterval, batchLimit
-	return NewTmpBackendFromCfg(bcfg)
+	bcfg.Path, bcfg.BatchInterval, bcfg.BatchLimit = tmpPath, batchInterval, batchLimit
+	return newBackend(bcfg), tmpPath
 }
 
 func NewDefaultTmpBackend() (*backend, string) {
