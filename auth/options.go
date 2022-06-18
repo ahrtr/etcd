@@ -21,7 +21,7 @@ import (
 	"io/ioutil"
 	"time"
 
-	"github.com/golang-jwt/jwt"
+	jwt "github.com/dgrijalva/jwt-go"
 )
 
 const (

@@ -117,13 +117,18 @@ func checkHealth(srv etcdserver.ServerV2, excludedAlarms AlarmSet) Health {
 		for _, v := range as {
 			alarmName := v.Alarm.String()
 			if _, found := excludedAlarms[alarmName]; found {
-				plog.Debugf("/health excluded alarm %s", v.String())
+				plog.Debugf("/health excluded alarm %s", alarmName)
+				delete(excludedAlarms, alarmName)
 				continue
 			}
 			h.Health = "false"
 			plog.Warningf("/health error due to %s", v.String())
 			return h
 		}
+	}
+
+	if len(excludedAlarms) > 0 {
+		plog.Warningf("fail exclude alarms from health check, exclude alarms %+v", excludedAlarms)
 	}
 
 	if h.Health == "true" {
