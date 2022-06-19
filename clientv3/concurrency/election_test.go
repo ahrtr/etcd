@@ -16,6 +16,7 @@ package concurrency_test
 
 import (
 	"context"
+	"errors"
 	"log"
 	"strings"
 	"testing"
@@ -64,6 +65,7 @@ func TestResumeElection(t *testing.T) {
 		string(leader.Kvs[0].Key), leader.Kvs[0].CreateRevision)
 
 	respChan := make(chan *clientv3.GetResponse)
+	errCHan := make(chan error)
 	go func() {
 		o := e.Observe(ctx)
 		respChan <- nil
@@ -71,7 +73,7 @@ func TestResumeElection(t *testing.T) {
 			select {
 			case resp, ok := <-o:
 				if !ok {
-					t.Fatal("Observe() channel closed prematurely")
+					errCHan <- errors.New("observe() channel closed prematurely")
 				}
 				// Ignore any observations that candidate1 was elected
 				if string(resp.Kvs[0].Value) == "candidate1" {
@@ -104,7 +106,12 @@ func TestResumeElection(t *testing.T) {
 	}
 
 	// wait for observed leader change
-	resp := <-respChan
+	var resp *clientv3.GetResponse
+	select {
+	case resp = <-respChan:
+	case err := <-errCHan:
+		t.Fatal(err)
+	}
 
 	kv := resp.Kvs[0]
 	if !strings.HasPrefix(string(kv.Key), prefix) {

@@ -1249,6 +1249,7 @@ func TestV3WatchCancellation(t *testing.T) {
 		expected = "1"
 	}
 
+	fmt.Printf("###### expected: %s, minWatches: %s\n", expected, minWatches)
 	if minWatches != expected {
 		t.Fatalf("expected %s watch, got %s", expected, minWatches)
 	}

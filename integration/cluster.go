@@ -1153,7 +1153,12 @@ func (m *member) Metric(metricName string) (string, error) {
 	}
 	lines := strings.Split(string(b), "\n")
 	for _, l := range lines {
+		if strings.Contains(l, metricName) {
+			fmt.Printf("######Contains:  metricName: %s\n", l)
+		}
+
 		if strings.HasPrefix(l, metricName) {
+			fmt.Printf("######HasPrefix:  metricName: %s\n", l)
 			return strings.Split(l, " ")[1], nil
 		}
 	}
