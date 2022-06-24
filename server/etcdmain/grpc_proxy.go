@@ -217,10 +217,12 @@ func startGRPCProxy(cmd *cobra.Command, args []string) {
 	httpClient := mustNewHTTPClient(lg)
 
 	srvhttp, httpl := mustHTTPListener(lg, m, tlsinfo, client, proxyClient)
+
 	if err := http2.ConfigureServer(srvhttp, &http2.Server{
 		MaxConcurrentStreams: maxConcurrentStreams,
+		MaxReadFrameSize:     uint32(grpcMaxCallSendMsgSize),
 	}); err != nil {
-		panic(err)
+		lg.Fatal("Failed to configure the http server", zap.Error(err))
 	}
 
 	errc := make(chan error, 3)
