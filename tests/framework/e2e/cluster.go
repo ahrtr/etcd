@@ -148,8 +148,7 @@ type EtcdProcessClusterConfig struct {
 
 	MetricsURLScheme string
 
-	SnapshotCount        int    // default is 10000
-	MaxConcurrentStreams uint32 // default is math.MaxUint32
+	SnapshotCount int // default is 10000
 
 	ClientTLS             ClientConnType
 	ClientCertAuthEnabled bool
@@ -342,26 +341,19 @@ func (cfg *EtcdProcessClusterConfig) EtcdServerProcessConfigs(tb testing.TB) []*
 			args = append(args, "--log-level", cfg.LogLevel)
 		}
 
-		if cfg.MaxConcurrentStreams != 0 {
-			args = append(args, "--max-concurrent-streams",
-				fmt.Sprintf("%d", cfg.MaxConcurrentStreams),
-			)
-		}
-
 		etcdCfgs[i] = &EtcdServerProcessConfig{
-			lg:                   lg,
-			ExecPath:             cfg.ExecPath,
-			Args:                 args,
-			EnvVars:              cfg.EnvVars,
-			TlsArgs:              cfg.TlsArgs(),
-			DataDirPath:          dataDirPath,
-			KeepDataDir:          cfg.KeepDataDir,
-			Name:                 name,
-			Purl:                 purl,
-			Acurl:                curl,
-			Murl:                 murl,
-			InitialToken:         cfg.InitialToken,
-			MaxConcurrentStreams: cfg.MaxConcurrentStreams,
+			lg:           lg,
+			ExecPath:     cfg.ExecPath,
+			Args:         args,
+			EnvVars:      cfg.EnvVars,
+			TlsArgs:      cfg.TlsArgs(),
+			DataDirPath:  dataDirPath,
+			KeepDataDir:  cfg.KeepDataDir,
+			Name:         name,
+			Purl:         purl,
+			Acurl:        curl,
+			Murl:         murl,
+			InitialToken: cfg.InitialToken,
 		}
 	}
 
