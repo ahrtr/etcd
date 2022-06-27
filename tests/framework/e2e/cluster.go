@@ -178,6 +178,7 @@ type EtcdProcessClusterConfig struct {
 	LogLevel           string
 
 	MaxConcurrentStreams uint32 // default is math.MaxUint32
+	MaxRequestBytes      uint   // default is embed.DefaultMaxRequestBytes (1.5MB)
 }
 
 // NewEtcdProcessCluster launches a new cluster from etcd processes, returning
@@ -345,6 +346,10 @@ func (cfg *EtcdProcessClusterConfig) EtcdServerProcessConfigs(tb testing.TB) []*
 
 		if cfg.MaxConcurrentStreams != 0 {
 			args = append(args, "--max-concurrent-streams", fmt.Sprintf("%d", cfg.MaxConcurrentStreams))
+		}
+
+		if cfg.MaxRequestBytes != 0 {
+			args = append(args, "--max-request-bytes", fmt.Sprintf("%d", cfg.MaxRequestBytes))
 		}
 
 		etcdCfgs[i] = &EtcdServerProcessConfig{

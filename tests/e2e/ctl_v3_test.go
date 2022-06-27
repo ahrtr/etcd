@@ -211,6 +211,14 @@ func withMaxConcurrentStreams(streams uint32) ctlOption {
 	}
 }
 
+// This function must be called after the `withCfg`, otherwise its value
+// may be overwritten by `withCfg`.
+func withMaxRequestBytes(maxRequestBytes uint) ctlOption {
+	return func(cx *ctlCtx) {
+		cx.cfg.MaxRequestBytes = maxRequestBytes
+	}
+}
+
 func testCtl(t *testing.T, testFunc func(ctlCtx), opts ...ctlOption) {
 	testCtlWithOffline(t, testFunc, nil, opts...)
 }
