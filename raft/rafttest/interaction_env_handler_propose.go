@@ -25,7 +25,11 @@ func (env *InteractionEnv) handlePropose(t *testing.T, d datadriven.TestData) er
 	if len(d.CmdArgs) != 2 || len(d.CmdArgs[1].Vals) > 0 {
 		t.Fatalf("expected exactly one key with no vals: %+v", d.CmdArgs[1:])
 	}
-	return env.Propose(idx, []byte(d.CmdArgs[1].Key))
+	if err := env.Propose(idx, []byte(d.CmdArgs[1].Key)); err != nil {
+		return err
+	}
+
+	return env.ReportStatus(idx)
 }
 
 // Propose a regular entry.

@@ -73,10 +73,27 @@ func (env *InteractionEnv) handleProposeConfChange(t *testing.T, d datadriven.Te
 			Changes:    ccs,
 		}
 	}
-	return env.ProposeConfChange(idx, c)
+	if err := env.ProposeConfChange(idx, c); err != nil {
+		return err
+	}
+
+	return env.ReportStatus(idx)
 }
 
 // ProposeConfChange proposes a configuration change on the node with the given index.
 func (env *InteractionEnv) ProposeConfChange(idx int, c raftpb.ConfChangeI) error {
 	return env.Nodes[idx].ProposeConfChange(c)
+}
+
+func (env *InteractionEnv) ReportStatus(idx int) error {
+	rn := env.Nodes[idx]
+	rd := rn.Ready()
+	status := rn.Status()
+
+	if status.ID == status.Lead && (len(rd.Entries) > 1 || (len(rd.Entries) == 1 && len(rd.Entries[0].Data) > 0)) {
+		e := rd.Entries[len(rd.Entries)-1]
+		return rn.Step(raftpb.Message{From: status.ID, To: status.ID, Type: raftpb.MsgAppResp, Index: e.Index})
+	}
+
+	return nil
 }
