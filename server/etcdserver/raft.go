@@ -167,6 +167,7 @@ func (r *raftNode) start(rh *raftReadyHandler) {
 			case <-r.ticker.C:
 				r.tick()
 			case rd := <-r.Ready():
+				readyDataTotal.Inc()
 				if rd.SoftState != nil {
 					newLeader := rd.SoftState.Lead != raft.None && rh.getLead() != rd.SoftState.Lead
 					if newLeader {
@@ -209,6 +210,7 @@ func (r *raftNode) start(rh *raftReadyHandler) {
 
 				updateCommittedIndex(&ap, rh)
 
+				entryCountInReady.Observe(float64(len(rd.Entries)))
 				waitWALSync := shouldWaitWALSync(rd)
 				if waitWALSync {
 					// gofail: var raftBeforeSaveWaitWalSync struct{}

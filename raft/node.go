@@ -346,13 +346,8 @@ func (n *node) run() {
 		// described in raft dissertation)
 		// Currently it is dropped in Step silently.
 		case pm := <-propc:
-			m := pm.m
-			m.From = r.id
-			err := r.Step(m)
-			if pm.result != nil {
-				pm.result <- err
-				close(pm.result)
-			}
+			n.processProposeMessage(&pm)
+			n.processMoreProposeMessage(propc)
 		case m := <-n.recvc:
 			// filter out response message from unknown From.
 			if pr := r.prs.Progress[m.From]; pr != nil || !IsResponseMsg(m.Type) {
@@ -406,6 +401,35 @@ func (n *node) run() {
 			close(n.done)
 			return
 		}
+	}
+}
+
+func (n *node) processMoreProposeMessage(propc chan msgWithResult) {
+	cnt := 1
+	for {
+		select {
+		case pm := <-propc:
+			n.processProposeMessage(&pm)
+		default:
+			return
+		}
+
+		cnt++
+		// todo: make the value configurable
+		if cnt >= 32 {
+			return
+		}
+	}
+}
+
+func (n *node) processProposeMessage(pm *msgWithResult) {
+	r := n.rn.raft
+	m := pm.m
+	m.From = r.id
+	err := r.Step(m)
+	if pm.result != nil {
+		pm.result <- err
+		close(pm.result)
 	}
 }
 

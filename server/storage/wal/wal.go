@@ -226,6 +226,7 @@ func Create(lg *zap.Logger, dirpath string, metadata []byte) (*WAL, error) {
 		return nil, perr
 	}
 	walFsyncSec.Observe(time.Since(start).Seconds())
+	walFsyncCount.Inc()
 	if err = dirCloser(); err != nil {
 		return nil, err
 	}
@@ -774,6 +775,7 @@ func (w *WAL) cut() error {
 		return err
 	}
 	walFsyncSec.Observe(time.Since(start).Seconds())
+	walFsyncCount.Inc()
 
 	// reopen newTail with its new path so calls to Name() match the wal filename format
 	newTail.Close()
@@ -820,6 +822,7 @@ func (w *WAL) sync() error {
 		)
 	}
 	walFsyncSec.Observe(took.Seconds())
+	walFsyncCount.Inc()
 
 	return err
 }

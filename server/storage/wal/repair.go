@@ -93,6 +93,7 @@ func Repair(lg *zap.Logger, dirpath string) bool {
 				return false
 			}
 			walFsyncSec.Observe(time.Since(start).Seconds())
+			walFsyncCount.Inc()
 
 			lg.Info("repaired", zap.String("path", f.Name()), zap.Error(io.ErrUnexpectedEOF))
 			return true

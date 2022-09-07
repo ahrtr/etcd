@@ -153,6 +153,22 @@ var (
 		Name:      "limit",
 		Help:      "The file descriptor limit.",
 	})
+	readyDataTotal = prometheus.NewCounter(prometheus.CounterOpts{
+		Namespace: "etcd",
+		Subsystem: "server",
+		Name:      "ready_data_total",
+		Help:      "The total number of ready objects received from raft.",
+	})
+	entryCountInReady = prometheus.NewHistogram(prometheus.HistogramOpts{
+		Namespace: "etcd",
+		Subsystem: "server",
+		Name:      "entry_count",
+		Help:      "The distribution of entry count in the ready.",
+
+		// lowest bucket start of upper bound 0.001 sec (1 ms) with factor 2
+		// highest bucket start of 0.001 sec * 2^13 == 8.192 sec
+		Buckets: prometheus.ExponentialBuckets(1, 2, 10),
+	})
 )
 
 func init() {
@@ -176,6 +192,8 @@ func init() {
 	prometheus.MustRegister(learnerPromoteFailed)
 	prometheus.MustRegister(fdUsed)
 	prometheus.MustRegister(fdLimit)
+	prometheus.MustRegister(readyDataTotal)
+	prometheus.MustRegister(entryCountInReady)
 
 	currentVersion.With(prometheus.Labels{
 		"server_version": version.Version,

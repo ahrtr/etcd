@@ -34,9 +34,17 @@ var (
 		Name:      "wal_write_bytes_total",
 		Help:      "Total number of bytes written in WAL.",
 	})
+
+	walFsyncCount = prometheus.NewCounter(prometheus.CounterOpts{
+		Namespace: "etcd",
+		Subsystem: "disk",
+		Name:      "wal_fsync_total",
+		Help:      "The total number of fsync called by WAL.",
+	})
 )
 
 func init() {
 	prometheus.MustRegister(walFsyncSec)
 	prometheus.MustRegister(walWriteBytes)
+	prometheus.MustRegister(walFsyncCount)
 }
