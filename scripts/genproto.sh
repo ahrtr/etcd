@@ -61,6 +61,7 @@ for pb in api/etcdserverpb/rpc server/etcdserver/api/v3lock/v3lockpb/v3lock serv
       -I"${ETCD_ROOT_DIR}"/third_party/googleapis \
       -I"${GOGOPROTO_PATH}" \
       -I"${ETCD_ROOT_DIR}/.." \
+      --go_opt=Mgoogle/protobuf/descriptor.proto=github.com/gogo/protobuf/protoc-gen-gogo/descriptor \
       --grpc-gateway_out=logtostderr=true,paths=source_relative:. \
       --swagger_out=logtostderr=true:./Documentation/dev-guide/apispec/swagger/. \
       --plugin="${SWAGGER_BIN}" --plugin="${GRPC_GATEWAY_BIN}" \
