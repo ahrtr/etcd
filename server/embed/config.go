@@ -501,7 +501,7 @@ func NewConfig() *Config {
 		BcryptCost:   uint(bcrypt.DefaultCost),
 		AuthTokenTTL: 300,
 
-		PreVote: true,
+		PreVote: false,
 
 		loggerMu:              new(sync.RWMutex),
 		logger:                nil,
