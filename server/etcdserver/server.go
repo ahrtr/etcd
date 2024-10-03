@@ -1966,9 +1966,6 @@ func (s *EtcdServer) applyEntryNormal(e *raftpb.Entry, shouldApplyV3 membership.
 
 	needResult := s.w.IsRegistered(id)
 	if needResult || !noSideEffect(&raftReq) {
-		if !needResult && raftReq.Txn != nil {
-			removeNeedlessRangeReqs(raftReq.Txn)
-		}
 		ar = s.applyInternalRaftRequest(&raftReq, shouldApplyV3)
 	}
 
