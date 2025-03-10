@@ -504,6 +504,15 @@ func TestClusterAddMember(t *testing.T) {
 				v2store.TTLOptionSet{ExpireTime: v2store.Permanent},
 			},
 		},
+		{
+			Name: "Set",
+			Params: []interface{}{
+				path.Join(StoreMembersPrefix, "1", "attributes"),
+				false,
+				`{"name":"node1"}`,
+				v2store.TTLOptionSet{ExpireTime: v2store.Permanent},
+			},
+		},
 	}
 	if g := st.Action(); !reflect.DeepEqual(g, wactions) {
 		t.Errorf("actions = %v, want %v", g, wactions)
@@ -524,6 +533,15 @@ func TestClusterAddMemberAsLearner(t *testing.T) {
 				false,
 				`{"peerURLs":null,"isLearner":true}`,
 				false,
+				v2store.TTLOptionSet{ExpireTime: v2store.Permanent},
+			},
+		},
+		{
+			Name: "Set",
+			Params: []interface{}{
+				path.Join(StoreMembersPrefix, "1", "attributes"),
+				false,
+				`{"name":"node1"}`,
 				v2store.TTLOptionSet{ExpireTime: v2store.Permanent},
 			},
 		},
