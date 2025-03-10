@@ -2452,13 +2452,18 @@ func (s *EtcdServer) applyConfChange(cc raftpb.ConfChange, confState *raftpb.Con
 		}
 	}
 
-	s.verifyV3StoreInSyncWithV2Store()
+	s.verifyV3StoreInSyncWithV2Store(shouldApplyV3)
 
 	return false, nil
 }
 
-func (s *EtcdServer) verifyV3StoreInSyncWithV2Store() {
+func (s *EtcdServer) verifyV3StoreInSyncWithV2Store(shouldApplyV3 membership.ShouldApplyV3) {
 	if !verify.VerifyEnabled() {
+		return
+	}
+
+	// If shouldApplyV3 == false, then it means v2store hasn't caught up with v3store.
+	if !shouldApplyV3 {
 		return
 	}
 
