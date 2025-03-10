@@ -2475,9 +2475,9 @@ func (s *EtcdServer) verifyV3StoreInSyncWithV2Store(shouldApplyV3 membership.Sho
 		v3Data, v3Err := json.Marshal(v3Members)
 
 		if v2Err != nil || v3Err != nil {
-			panic("members in v2store doesn't members in v3store")
+			panic("members in v2store doesn't match v3store")
 		}
-		panic(fmt.Sprintf("members in v2store doesn't v3store, v2store: %s, v3store: %s", string(v2Data), string(v3Data)))
+		panic(fmt.Sprintf("members in v2store doesn't match v3store, v2store: %s, v3store: %s", string(v2Data), string(v3Data)))
 	}
 
 	if match := reflect.DeepEqual(v2RemovedMembers, v3RemovedMembers); !match {
