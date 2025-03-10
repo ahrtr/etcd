@@ -56,7 +56,7 @@ func assertVerifyCanStartV2deprecationNotYet(t testing.TB, dataDirPath string) {
 
 	if err := e2e.CURLGet(epc, e2e.CURLReq{
 		Endpoint: "/v2/keys/foo",
-		Expected: `{"action":"get","node":{"key":"/foo","value":"bar9","modifiedIndex":13,"createdIndex":13}}`}); err != nil {
+		Expected: `{"action":"get","node":{"key":"/foo","value":"bar9","modifiedIndex":14,"createdIndex":14}}`}); err != nil {
 		t.Fatalf("failed get with curl (%v)", err)
 	}
 
