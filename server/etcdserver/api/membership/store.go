@@ -220,8 +220,23 @@ func unsafeSaveMemberToStore(lg *zap.Logger, s v2store.Store, m *Member) error {
 		lg.Panic("failed to marshal raftAttributes", zap.Error(err))
 	}
 	p := path.Join(MemberStoreKey(m.ID), raftAttributesSuffix)
-	_, err = s.Create(p, false, string(b), false, v2store.TTLOptionSet{ExpireTime: v2store.Permanent})
-	return err
+	if _, err = s.Create(p, false, string(b), false, v2store.TTLOptionSet{ExpireTime: v2store.Permanent}); err != nil {
+		return err
+	}
+
+	if !isAttributeEmpty(m.Attributes) {
+		mustUpdateMemberAttrInStore(lg, s, m)
+	}
+
+	return nil
+}
+
+func isAttributeEmpty(attr Attributes) bool {
+	if len(attr.Name) == 0 && len(attr.ClientURLs) == 0 {
+		return true
+	}
+
+	return false
 }
 
 func unsafeDeleteMemberFromStore(s v2store.Store, id types.ID) error {
