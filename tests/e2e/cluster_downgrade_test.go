@@ -32,6 +32,7 @@ import (
 	"go.etcd.io/etcd/server/v3/datadir"
 	"go.etcd.io/etcd/server/v3/etcdserver"
 	"go.etcd.io/etcd/server/v3/etcdserver/api/snap"
+	"go.etcd.io/etcd/server/v3/verify"
 	"go.etcd.io/etcd/tests/v3/framework/e2e"
 	"go.etcd.io/etcd/tests/v3/testutils"
 )
@@ -80,6 +81,11 @@ func testDowngradeUpgrade(t *testing.T, clusterSize int, triggerSnapshot bool) {
 	lastClusterVersionStr := lastClusterVersion.String()
 
 	e2e.BeforeTest(t)
+
+	// disable the verification due to a 3.4 bug.
+	// refer to https://github.com/etcd-io/etcd/issues/19571.
+	revertFunc := verify.DisableVerification()
+	defer revertFunc()
 
 	t.Logf("Create cluster with version %s", currentVersionStr)
 	snapshotCount := 10
