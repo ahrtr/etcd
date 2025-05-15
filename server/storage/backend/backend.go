@@ -199,6 +199,7 @@ func newBackend(bcfg BackendConfig) *backend {
 	bopts.NoGrowSync = bcfg.UnsafeNoFsync
 	bopts.Mlock = bcfg.Mlock
 	bopts.Logger = newBoltLoggerZap(bcfg)
+	bopts.PageSize = 4096
 
 	db, err := bolt.Open(bcfg.Path, 0o600, bopts)
 	if err != nil {

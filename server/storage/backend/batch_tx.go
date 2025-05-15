@@ -68,6 +68,7 @@ type UnsafeWriter interface {
 	UnsafePut(bucket Bucket, key []byte, value []byte)
 	UnsafeSeqPut(bucket Bucket, key []byte, value []byte)
 	UnsafeDelete(bucket Bucket, key []byte)
+	UnsafeSeqDelete(bucket Bucket, key []byte)
 }
 
 type batchTx struct {
@@ -207,6 +208,16 @@ func unsafeRange(c *bolt.Cursor, key, endKey []byte, limit int64) (keys [][]byte
 
 // UnsafeDelete must be called holding the lock on the tx.
 func (t *batchTx) UnsafeDelete(bucketType Bucket, key []byte) {
+	t.unsafeDelete(bucketType, key, false)
+}
+
+// UnsafeSeqDelete must be called holding the lock on the tx.
+func (t *batchTx) UnsafeSeqDelete(bucketType Bucket, key []byte) {
+	t.unsafeDelete(bucketType, key, true)
+}
+
+// UnsafeDelete must be called holding the lock on the tx.
+func (t *batchTx) unsafeDelete(bucketType Bucket, key []byte, seq bool) {
 	bucket := t.tx.Bucket(bucketType.Name())
 	if bucket == nil {
 		t.backend.lg.Fatal(
@@ -215,6 +226,12 @@ func (t *batchTx) UnsafeDelete(bucketType Bucket, key []byte) {
 			zap.Stack("stack"),
 		)
 	}
+
+	if seq {
+		// it is useful to rebalance each page after some keys being removed.
+		bucket.RebalancePercent = 0.9
+	}
+
 	err := bucket.Delete(key)
 	if err != nil {
 		t.backend.lg.Fatal(
@@ -397,6 +414,11 @@ func (t *batchTxBuffered) UnsafeSeqPut(bucket Bucket, key []byte, value []byte) 
 
 func (t *batchTxBuffered) UnsafeDelete(bucketType Bucket, key []byte) {
 	t.batchTx.UnsafeDelete(bucketType, key)
+	t.pendingDeleteOperations++
+}
+
+func (t *batchTxBuffered) UnsafeSeqDelete(bucketType Bucket, key []byte) {
+	t.batchTx.UnsafeSeqDelete(bucketType, key)
 	t.pendingDeleteOperations++
 }
 

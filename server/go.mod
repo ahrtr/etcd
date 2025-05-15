@@ -79,6 +79,7 @@ require (
 )
 
 replace (
+	go.etcd.io/bbolt => ./../../bbolt
 	go.etcd.io/etcd/api/v3 => ../api
 	go.etcd.io/etcd/client/pkg/v3 => ../client/pkg
 	go.etcd.io/etcd/client/v2 => ./../client/internal/v2

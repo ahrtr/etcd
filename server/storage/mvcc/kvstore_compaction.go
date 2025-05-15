@@ -54,7 +54,7 @@ func (s *store) scheduleCompaction(compactMainRev, prevCompactRev int64) (KeyVal
 		for i := range keys {
 			rev = BytesToRev(keys[i])
 			if _, ok := keep[rev]; !ok {
-				tx.UnsafeDelete(schema.Key, keys[i])
+				tx.UnsafeSeqDelete(schema.Key, keys[i])
 				keyCompactions++
 			}
 			h.WriteKeyValue(keys[i], values[i])
