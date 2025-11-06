@@ -485,9 +485,7 @@ func TestKVGetRetry(t *testing.T) {
 	go func() {
 		// Get will fail, but reconnect will trigger
 		gresp, gerr := kv.Get(ctx, "foo")
-		if gerr != nil {
-			t.Error(gerr)
-		}
+		require.NoError(t, gerr)
 		wkvs := []*mvccpb.KeyValue{
 			{
 				Key:            []byte("foo"),
