@@ -195,6 +195,81 @@ func TestBackendDefrag(t *testing.T) {
 	b.ForceCommit()
 }
 
+// TestBackendDefragNonBlocking verifies that, with NonBlockingDefrag enabled, writers are not blocked while
+// Defrag() is running, and that everything written during the run - to both a safe-range bucket
+// (schema.Key) and a non-safe-range one (schema.Test) - is present afterward.
+func TestBackendDefragNonBlocking(t *testing.T) {
+	bcfg := backend.DefaultBackendConfig(zaptest.NewLogger(t))
+	bcfg.NonBlockingDefrag = true
+	b, _ := betesting.NewTmpBackendFromCfg(t, bcfg)
+	defer betesting.Close(t, b)
+
+	n := backend.DefragLimitForTest() + 100
+	tx := b.BatchTx()
+	tx.Lock()
+	tx.UnsafeCreateBucket(schema.Key)
+	tx.UnsafeCreateBucket(schema.Test)
+	for i := 0; i < n; i++ {
+		tx.UnsafeSeqPut(schema.Key, []byte(fmt.Sprintf("key_%08d", i)), []byte("bar"))
+		tx.UnsafePut(schema.Test, []byte(fmt.Sprintf("foo_%d", i)), []byte("bar"))
+	}
+	tx.Unlock()
+	b.ForceCommit()
+
+	// Delete some entries from the non-safe-range bucket, so there's space to reclaim and the
+	// catch-up phase's full re-copy of that bucket is exercised against a bucket whose shape
+	// changed after the bulk-copy snapshot was taken.
+	tx = b.BatchTx()
+	tx.Lock()
+	for i := 0; i < 50; i++ {
+		tx.UnsafeDelete(schema.Test, []byte(fmt.Sprintf("foo_%d", i)))
+	}
+	tx.Unlock()
+	b.ForceCommit()
+
+	defragDone := make(chan error, 1)
+	go func() {
+		defragDone <- b.Defrag()
+	}()
+
+	// Issue writes to both buckets while Defrag() is (expected to be) still running its
+	// non-blocking bulk-copy phase. A legacy blocking defrag would make every one of these wait
+	// for Defrag() to return.
+	concurrentWrites := 0
+	sawConcurrentProgress := false
+loop:
+	for i := 0; ; i++ {
+		select {
+		case err := <-defragDone:
+			require.NoError(t, err)
+			break loop
+		default:
+		}
+		wtx := b.BatchTx()
+		wtx.Lock()
+		wtx.UnsafeSeqPut(schema.Key, []byte(fmt.Sprintf("key_%08d", n+i)), []byte("during"))
+		wtx.UnsafePut(schema.Test, []byte(fmt.Sprintf("during_%d", i)), []byte("during"))
+		wtx.Unlock()
+		b.ForceCommit()
+		concurrentWrites++
+		sawConcurrentProgress = true
+		if i > 5000 {
+			// Safety valve: don't loop forever if Defrag() unexpectedly never signals.
+			require.NoError(t, <-defragDone)
+			break loop
+		}
+	}
+	require.Truef(t, sawConcurrentProgress, "expected at least one write to complete while Defrag() was still running (non-blocking defrag should not block writers)")
+
+	tx = b.BatchTx()
+	tx.Lock()
+	defer tx.Unlock()
+	keys, _ := tx.UnsafeRange(schema.Key, []byte(fmt.Sprintf("key_%08d", n)), []byte(fmt.Sprintf("key_%08d", n+concurrentWrites)), 0)
+	require.Lenf(t, keys, concurrentWrites, "catch-up phase should have copied every key written to the safe-range bucket during the run")
+	testKeys, _ := tx.UnsafeRange(schema.Test, []byte("during_"), []byte("during_\xff"), 0)
+	require.Lenf(t, testKeys, concurrentWrites, "catch-up phase should have copied every key written to the non-safe-range bucket during the run")
+}
+
 // TestBackendWriteback ensures writes are stored to the read txn on write txn unlock.
 func TestBackendWriteback(t *testing.T) {
 	b, _ := betesting.NewDefaultTmpBackend(t)
